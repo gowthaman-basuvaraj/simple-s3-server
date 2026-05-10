@@ -36,7 +36,7 @@ class AppTest {
     // --- ListBuckets ---
 
     @Test
-    fun `list buckets returns XML`() = JavalinTest.test(createApp()) { _, client ->
+    fun `list buckets returns XML`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "alpha", 10)
         createBucket(client, "beta", 20)
         val response = client.get("/")
@@ -50,7 +50,7 @@ class AppTest {
     // --- CreateBucket ---
 
     @Test
-    fun `create bucket returns 200 with XML`() = JavalinTest.test(createApp()) { _, client ->
+    fun `create bucket returns 200 with XML`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         val response = createBucket(client, "photos", 30)
         assertThat(response.code).isEqualTo(200)
         val body = response.body?.string()!!
@@ -59,13 +59,13 @@ class AppTest {
     }
 
     @Test
-    fun `create bucket uses default expiry when header missing`() = JavalinTest.test(createApp()) { _, client ->
+    fun `create bucket uses default expiry when header missing`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         val response = createBucket(client, "defaultbucket")
         assertThat(response.code).isEqualTo(200)
     }
 
     @Test
-    fun `create duplicate bucket is idempotent`() = JavalinTest.test(createApp()) { _, client ->
+    fun `create duplicate bucket is idempotent`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "dup", 7)
         val response = createBucket(client, "dup", 7)
         assertThat(response.code).isEqualTo(200)
@@ -74,14 +74,14 @@ class AppTest {
     // --- HeadBucket ---
 
     @Test
-    fun `head existing bucket returns 200`() = JavalinTest.test(createApp()) { _, client ->
+    fun `head existing bucket returns 200`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "exists", 10)
         val response = client.request("/exists") { it.head() }
         assertThat(response.code).isEqualTo(200)
     }
 
     @Test
-    fun `head nonexistent bucket returns 404`() = JavalinTest.test(createApp()) { _, client ->
+    fun `head nonexistent bucket returns 404`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         val response = client.request("/nope") { it.head() }
         assertThat(response.code).isEqualTo(404)
     }
@@ -89,7 +89,7 @@ class AppTest {
     // --- PutObject ---
 
     @Test
-    fun `put object to nonexistent bucket returns 404`() = JavalinTest.test(createApp()) { _, client ->
+    fun `put object to nonexistent bucket returns 404`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         val response = client.request("/nope/file.txt") {
             it.put("hello".toRequestBody(textPlain))
         }
@@ -98,7 +98,7 @@ class AppTest {
     }
 
     @Test
-    fun `put object returns 200 with ETag`() = JavalinTest.test(createApp()) { _, client ->
+    fun `put object returns 200 with ETag`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "docs", 10)
         val response = client.request("/docs/readme.txt") {
             it.put("Hello S3".toRequestBody(textPlain))
@@ -108,7 +108,7 @@ class AppTest {
     }
 
     @Test
-    fun `put empty body returns 400`() = JavalinTest.test(createApp()) { _, client ->
+    fun `put empty body returns 400`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "docs")
         val response = client.request("/docs/empty.txt") { it.put(empty) }
         assertThat(response.code).isEqualTo(400)
@@ -118,7 +118,7 @@ class AppTest {
     // --- HeadObject ---
 
     @Test
-    fun `head object returns metadata`() = JavalinTest.test(createApp()) { _, client ->
+    fun `head object returns metadata`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "docs")
         client.request("/docs/file.txt") { it.put("content".toRequestBody(textPlain)) }
 
@@ -129,7 +129,7 @@ class AppTest {
     }
 
     @Test
-    fun `head nonexistent object returns 404`() = JavalinTest.test(createApp()) { _, client ->
+    fun `head nonexistent object returns 404`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "docs")
         val response = client.request("/docs/nope.txt") { it.head() }
         assertThat(response.code).isEqualTo(404)
@@ -138,7 +138,7 @@ class AppTest {
     // --- GetObject ---
 
     @Test
-    fun `get object returns content with ETag`() = JavalinTest.test(createApp()) { _, client ->
+    fun `get object returns content with ETag`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "docs")
         client.request("/docs/readme.txt") { it.put("Hello S3".toRequestBody(textPlain)) }
 
@@ -150,7 +150,7 @@ class AppTest {
     }
 
     @Test
-    fun `get nonexistent object returns 404 XML`() = JavalinTest.test(createApp()) { _, client ->
+    fun `get nonexistent object returns 404 XML`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "empty")
         val response = client.get("/empty/nope.txt")
         assertThat(response.code).isEqualTo(404)
@@ -158,7 +158,7 @@ class AppTest {
     }
 
     @Test
-    fun `put and get with nested key path`() = JavalinTest.test(createApp()) { _, client ->
+    fun `put and get with nested key path`() = JavalinTest.test(createApp(setOf("127.0.0.1"))) { _, client ->
         createBucket(client, "files")
         client.request("/files/a/b/c.txt") { it.put("nested".toRequestBody(textPlain)) }
 
@@ -213,8 +213,8 @@ class AppTest {
     }
 
     @Test
-    fun `no ip restriction when allowedIps is null`() = JavalinTest.test(createApp(null)) { _, client ->
-        val response = createBucket(client, "free")
-        assertThat(response.code).isEqualTo(200)
+    fun `empty allowedIps blocks all writes`() = JavalinTest.test(createApp(emptySet())) { _, client ->
+        val response = createBucket(client, "blocked")
+        assertThat(response.code).isEqualTo(403)
     }
 }

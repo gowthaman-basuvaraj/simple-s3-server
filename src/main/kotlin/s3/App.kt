@@ -3,6 +3,7 @@ package s3
 import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.parameters.options.default
 import com.github.ajalt.clikt.parameters.options.option
+import com.github.ajalt.clikt.parameters.options.required
 import com.github.ajalt.clikt.parameters.types.int
 import io.javalin.Javalin
 import io.javalin.http.Context
@@ -14,7 +15,7 @@ import java.util.UUID
 
 class Server : CliktCommand() {
     private val port by option("--port", help = "Server port").int().default(9393)
-    private val allowedIps by option("--allowed-ips", help = "Comma-separated IPs allowed to create buckets and put objects")
+    private val allowedIps by option("--allowed-ips", help = "Comma-separated IPs allowed to create buckets and put objects").required()
     private val defaultExpiryDays by option("--default-expiry-days", help = "Default expiry days for buckets when header is not set").int().default(30)
     private val dbName by option("--db", help = "SQLite database file path").default("storage/s3.db")
 
@@ -28,16 +29,16 @@ class Server : CliktCommand() {
         }
         Cleanup.start()
 
-        val ips = allowedIps?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() }?.toSet()
+        val ips = allowedIps.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         createApp(ips, defaultExpiryDays).start(port)
         println("my-own-s3 running on http://localhost:$port")
-        if (ips != null) println("Allowed IPs: $ips")
+        println("Allowed IPs: $ips")
     }
 }
 
 fun main(args: Array<String>) = Server().main(args)
 
-fun createApp(allowedIps: Set<String>? = null, defaultExpiryDays: Int = 30): Javalin {
+fun createApp(allowedIps: Set<String> = emptySet(), defaultExpiryDays: Int = 30): Javalin {
     val app = Javalin.create()
 
     // GET / — ListBuckets
@@ -196,9 +197,9 @@ fun createApp(allowedIps: Set<String>? = null, defaultExpiryDays: Int = 30): Jav
     return app
 }
 
-private fun checkIp(ctx: Context, allowedIps: Set<String>?): Boolean {
-    if (allowedIps == null) return true
-    if (ctx.ip() in allowedIps) return true
+private fun checkIp(ctx: Context, allowedIps: Set<String>): Boolean {
+    val clientIp = ctx.header("X-Forwarded-For")?.split(",")?.first()?.trim() ?: ctx.ip()
+    if (clientIp in allowedIps) return true
     ctx.s3Error(403, "AccessDenied", "Access Denied", ctx.path())
     return false
 }
